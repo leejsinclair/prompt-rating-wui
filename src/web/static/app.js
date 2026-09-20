@@ -116,7 +116,13 @@ function errorNotice(err) {
 }
 
 function pageHref(basePath, params) {
-  const query = new URLSearchParams(params);
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value === null || value === undefined) continue;
+    const normalized = key === "q" ? String(value).trim() : String(value);
+    if (normalized === "") continue;
+    query.set(key, normalized);
+  }
   const suffix = query.toString();
   return suffix ? `${basePath}?${suffix}` : basePath;
 }

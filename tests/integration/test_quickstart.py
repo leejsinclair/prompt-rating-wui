@@ -30,11 +30,12 @@ class QuickstartTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         tmp = Path(self._tmp.name)
+        self.now = datetime(2026, 1, 10, tzinfo=timezone.utc)
         self.root = tmp / "projects"
         self.proj = self.root / "-w"
         self.proj.mkdir(parents=True)
         self.store_path = tmp / "cfg" / "ratings.json"
-        self.server = create_server(Context(store=RatingsStore(self.store_path), projects_root=self.root), port=0)
+        self.server = create_server(Context(store=RatingsStore(self.store_path), projects_root=self.root, now=self.now), port=0)
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
@@ -100,8 +101,8 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual([session["session_id"] for session in sessions], ["shown"])
 
     def test_prompt_search_only_returns_recent_matches(self):
-        recent = datetime.now(timezone.utc) - timedelta(days=2)
-        old = datetime.now(timezone.utc) - timedelta(days=8)
+        recent = self.now - timedelta(days=2)
+        old = self.now - timedelta(days=8)
         (self.proj / "recent.jsonl").write_text(
             "\n".join(
                 [
