@@ -152,11 +152,12 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
 
     matches.sort(key=lambda prompt: prompt["sort_timestamp"], reverse=True)
     start = (page - 1) * PAGE_SIZE
-    for prompt in matches:
+    window = matches[start : start + PAGE_SIZE]
+    for prompt in window:
         prompt.pop("sort_timestamp", None)
     return 200, {
         "page": page,
         "has_more": start + PAGE_SIZE < len(matches),
         "query": query,
-        "prompts": matches[start : start + PAGE_SIZE],
+        "prompts": window,
     }

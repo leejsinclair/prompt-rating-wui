@@ -234,7 +234,9 @@ function clampedText(fullText) {
 /* ---------- session list (FR-001) ---------- */
 
 function searchForm(query = "") {
+  const label = el("label", { for: "prompt-search" }, "Search prompts");
   const input = el("input", {
+    id: "prompt-search",
     type: "search",
     name: "q",
     value: query,
@@ -256,6 +258,7 @@ function searchForm(query = "") {
   return el(
     "div",
     { class: "search-box" },
+    label,
     form,
     el("p", { class: "muted" }, "Searches prompt text across all sessions from the last 7 days.")
   );
