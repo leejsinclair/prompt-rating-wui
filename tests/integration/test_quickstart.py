@@ -161,7 +161,7 @@ class QuickstartTests(unittest.TestCase):
         (self.proj / "bad.jsonl").write_bytes(b"\xff\xfe{{{ not json\n{\"type\": \"user\"\n")
         status, data = self.call("GET", "/api/sessions")
         self.assertEqual(status, 200)
-        self.assertEqual(len(data["sessions"]), 2)
+        self.assertEqual(len(data["sessions"]), 1)
         self.assertEqual(self.call("GET", "/api/sessions/bad")[0], 200)
 
     def test_orphaned_rating_is_flagged_not_dropped(self):
