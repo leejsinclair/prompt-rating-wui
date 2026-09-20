@@ -316,14 +316,15 @@ async function renderSessionList(page, token) {
 }
 
 function searchResultCard(prompt) {
-  const sessionTitle = prompt.session_title || "(no prompt text)";
+  const sessionTitle = prompt.session_title || "(untitled session)";
   return el(
     "article",
     {},
-    el("h3", {}, el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, sessionTitle)),
     el(
       "p",
       { class: "meta" },
+      el("span", {}, "Session: "),
+      el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, sessionTitle),
       el("span", {}, `Prompt ${prompt.position + 1}`),
       el("span", {}, formatStamp(prompt.timestamp)),
       prompt.project_path ? el("span", {}, prompt.project_path) : null,
