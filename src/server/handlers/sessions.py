@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 from src.discovery import discover_session_files
@@ -104,7 +104,10 @@ def get_prompt(ctx: Context, req: Request) -> Tuple[int, dict]:
 
 def _parse_timestamp(timestamp: str):
     try:
-        return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
     except ValueError:
         return None
 
@@ -129,7 +132,8 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
             if parsed_timestamp is None or parsed_timestamp < cutoff:
                 continue
             text = humanize_command_markup(prompt.text)
-            if needle not in text.casefold():
+            searchable_text = strip_markup(text)
+            if needle not in searchable_text.casefold():
                 continue
             snippet, is_truncated = truncate_text(text)
             matches.append(

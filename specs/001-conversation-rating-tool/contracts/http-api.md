@@ -79,6 +79,41 @@ more" control from FR-013).
 
 **404**: unknown `session_id`/`prompt_id` pair.
 
+## GET /api/prompts/search
+
+Search prompt text across parseable sessions, limited to prompts from the last seven days.
+
+**Query params**:
+- `q` (required, non-empty string)
+- `page` (integer, default 1)
+
+Search matching uses visible prompt text (presentation markup is ignored for matching). Returned
+`text` remains the humanized/truncated prompt text used by the UI.
+
+**200 response**:
+```json
+{
+  "page": 1,
+  "has_more": false,
+  "query": "needle",
+  "prompts": [
+    {
+      "prompt_id": "78edc450-...",
+      "session_id": "51755f29-...",
+      "position": 0,
+      "timestamp": "2026-09-19T10:00:00Z",
+      "project_path": "/work/project",
+      "text": "...",
+      "is_truncated": false
+    }
+  ]
+}
+```
+
+Only prompts with parseable timestamps in the last 7 days are included.
+
+**400**: missing/empty `q` (`{"error": "q is required."}`).
+
 ## PUT /api/ratings/{prompt_id}
 
 Set or replace a prompt's rating (FR-005, FR-006, FR-009).

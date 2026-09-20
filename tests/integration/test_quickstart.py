@@ -145,6 +145,64 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([prompt["prompt_id"] for prompt in data["prompts"]], ["recent-prompt"])
 
+    def test_prompt_search_accepts_recent_naive_timestamps(self):
+        recent_naive = (self.now - timedelta(days=1)).replace(tzinfo=None)
+        (self.proj / "recent-naive.jsonl").write_text(
+            "\n".join(
+                [
+                    line(
+                        "user",
+                        promptId="recent-naive",
+                        timestamp=recent_naive.isoformat(),
+                        cwd="/w",
+                        message={"role": "user", "content": "Needle"},
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(recent_naive + timedelta(seconds=30)).isoformat(),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                ]
+            )
+            + "\n"
+        )
+
+        status, data = self.call("GET", "/api/prompts/search?q=needle")
+        self.assertEqual(status, 200)
+        self.assertEqual([prompt["prompt_id"] for prompt in data["prompts"]], ["recent-naive"])
+
+    def test_prompt_search_ignores_presentation_markup(self):
+        recent = self.now - timedelta(days=1)
+        (self.proj / "markup.jsonl").write_text(
+            "\n".join(
+                [
+                    line(
+                        "user",
+                        promptId="markup-prompt",
+                        timestamp=recent.isoformat().replace("+00:00", "Z"),
+                        cwd="/w",
+                        message={
+                            "role": "user",
+                            "content": "<strong>&lt;command-name&gt;/clear&lt;/command-name&gt;</strong>",
+                        },
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(recent + timedelta(seconds=30)).isoformat().replace("+00:00", "Z"),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        status, hidden_match = self.call("GET", "/api/prompts/search?q=strong")
+        self.assertEqual(status, 200)
+        self.assertEqual(hidden_match["prompts"], [])
+
+        status, visible_match = self.call("GET", "/api/prompts/search?q=clear")
+        self.assertEqual(status, 200)
+        self.assertEqual([prompt["prompt_id"] for prompt in visible_match["prompts"]], ["markup-prompt"])
+
     def test_invalid_rating_value_rejected(self):
         self.assertEqual(self.call("PUT", "/api/ratings/a", {"value": 0, "session_id": "s", "position": 0})[0], 400)
         self.assertEqual(self.call("PUT", "/api/ratings/a", {"value": "5", "session_id": "s", "position": 0})[0], 400)

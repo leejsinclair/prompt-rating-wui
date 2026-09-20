@@ -292,7 +292,8 @@ async function renderSessionList(page, token) {
 
   const items = data.sessions.map((s) => {
     const title = el("strong", {});
-    setSafeText(title, s.title || "(unreadable session)");
+    const fallbackTitle = s.is_parseable ? "(no prompt text)" : "(unreadable session)";
+    setSafeText(title, s.title || fallbackTitle);
     return el(
       "li",
       {},
