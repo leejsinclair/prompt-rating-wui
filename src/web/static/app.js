@@ -325,7 +325,6 @@ function searchResultCard(prompt) {
       { class: "meta" },
       el("span", {}, "Session: "),
       el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, sessionTitle),
-      el("span", {}, `Prompt ${prompt.position + 1} in session`),
       el("span", {}, formatStamp(prompt.timestamp)),
       prompt.project_path ? el("span", {}, prompt.project_path) : null,
       el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, "Open session")
