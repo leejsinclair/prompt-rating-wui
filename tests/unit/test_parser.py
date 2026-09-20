@@ -131,6 +131,10 @@ class ParserTests(unittest.TestCase):
         text = "<strong>&lt;command-name&gt;/clear&lt;/command-name&gt; &lt;command-message&gt;clear&lt;/command-message&gt; &lt;command-args&gt;&lt;/command-args&gt;</strong>"
         self.assertEqual(humanize_command_markup(text), "<strong>/clear</strong>")
 
+    def test_humanizes_literal_command_markup(self):
+        text = "<command-name>/help</command-name> <command-message>describe</command-message> <command-args>topic</command-args>"
+        self.assertEqual(humanize_command_markup(text), "/help topic — describe")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -102,12 +102,16 @@ def get_prompt(ctx: Context, req: Request) -> Tuple[int, dict]:
     return 200, payload
 
 
-def _is_recent(timestamp: str, cutoff: datetime) -> bool:
+def _parse_timestamp(timestamp: str):
     try:
-        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     except ValueError:
-        return False
-    return parsed >= cutoff
+        return None
+
+
+def _is_recent(timestamp: str, cutoff: datetime) -> bool:
+    parsed = _parse_timestamp(timestamp)
+    return parsed is not None and parsed >= cutoff
 
 
 def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
@@ -130,20 +134,26 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
             if needle not in text.casefold():
                 continue
             snippet, is_truncated = truncate_text(text)
+            parsed_timestamp = _parse_timestamp(prompt.timestamp)
+            if parsed_timestamp is None:
+                continue
             matches.append(
                 {
                     "prompt_id": prompt.prompt_id,
                     "session_id": session.session_id,
                     "position": prompt.position,
                     "timestamp": prompt.timestamp,
+                    "sort_timestamp": parsed_timestamp,
                     "project_path": session.project_path,
                     "text": snippet,
                     "is_truncated": is_truncated,
                 }
             )
 
-    matches.sort(key=lambda prompt: prompt["timestamp"], reverse=True)
+    matches.sort(key=lambda prompt: prompt["sort_timestamp"], reverse=True)
     start = (page - 1) * PAGE_SIZE
+    for prompt in matches:
+        prompt.pop("sort_timestamp", None)
     return 200, {
         "page": page,
         "has_more": start + PAGE_SIZE < len(matches),
