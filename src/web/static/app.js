@@ -3,7 +3,6 @@
 const main = document.getElementById("main");
 const MAX_CHARS = 2000;
 const MAX_WORDS = 500;
-const SAFE_INLINE_TAGS = new Set(["BR", "CODE", "EM", "KBD", "SAMP", "STRONG"]);
 let renderToken = 0;
 
 /* ---------- helpers ---------- */
@@ -52,60 +51,16 @@ async function api(method, path, body) {
   return payload;
 }
 
-function formatCommandMarkup(text) {
-  return text.replace(
-    /(?:<command-name>|&lt;command-name&gt;)([\s\S]*?)(?:<\/command-name>|&lt;\/command-name&gt;)\s*(?:<command-message>|&lt;command-message&gt;)([\s\S]*?)(?:<\/command-message>|&lt;\/command-message&gt;)\s*(?:<command-args>|&lt;command-args&gt;)([\s\S]*?)(?:<\/command-args>|&lt;\/command-args&gt;)/g,
-    (_, rawName, rawMessage, rawArgs) => {
-      const decode = (value) => {
-        const textarea = document.createElement("textarea");
-        textarea.innerHTML = value;
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = textarea.value;
-        return wrapper.textContent.trim();
-      };
-      const name = decode(rawName);
-      const message = decode(rawMessage);
-      const args = decode(rawArgs);
-      const command = [name, args].filter(Boolean).join(" ").trim();
-      return message && message !== command && message !== command.replace(/^\//, "")
-        ? `${command} — ${message}`
-        : (command || message);
-    }
-  );
-}
-
-function sanitizeFragment(html) {
-  const template = document.createElement("template");
-  template.innerHTML = html;
-
-  function copy(node) {
-    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.textContent);
-    if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment();
-    const children = [...node.childNodes].map(copy);
-    if (!SAFE_INLINE_TAGS.has(node.tagName)) {
-      const fragment = document.createDocumentFragment();
-      children.forEach((child) => fragment.append(child));
-      return fragment;
-    }
-    const clone = document.createElement(node.tagName.toLowerCase());
-    children.forEach((child) => clone.append(child));
-    return clone;
-  }
-
-  return [...template.content.childNodes].map(copy);
-}
-
 function setSafeText(node, text) {
-  const formatted = formatCommandMarkup(text);
   if (typeof node.setHTML === "function") {
     try {
-      node.setHTML(formatted);
+      node.setHTML(text);
       return node;
     } catch (sanitizeError) {
-      /* fall through to local sanitization */
+      /* fall through to plain text */
     }
   }
-  node.replaceChildren(...sanitizeFragment(formatted));
+  node.textContent = text;
   return node;
 }
 
@@ -395,7 +350,7 @@ async function renderPromptSearch(query, page, token) {
     el("h2", {}, "Sessions"),
     searchForm(query),
     el("p", { class: "muted" }, `Showing matches for “${data.query}”.`),
-    data.prompts.map((prompt) => searchResultCard(prompt)),
+    ...data.prompts.map((prompt) => searchResultCard(prompt)),
     pager("#/sessions", data.page, data.has_more, { q: data.query })
   );
 }

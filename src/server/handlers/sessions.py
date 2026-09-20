@@ -13,6 +13,7 @@ from src.server.common import (
     load_ratings,
     load_session,
     now_utc,
+    strip_markup,
     truncate_text,
 )
 
@@ -39,7 +40,7 @@ def list_sessions(ctx: Context, req: Request) -> Tuple[int, dict]:
                 "prompt_count": s.prompt_count,
                 "is_parseable": s.is_parseable,
                 "project_path": s.project_path,
-                "title": _preview(humanize_command_markup(s.prompts[0].text)) if s.prompts else None,
+                "title": _preview(strip_markup(humanize_command_markup(s.prompts[0].text))) if s.prompts else None,
             }
             for s in window
         ],
