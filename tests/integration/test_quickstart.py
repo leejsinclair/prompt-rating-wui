@@ -171,6 +171,58 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([prompt["prompt_id"] for prompt in data["prompts"]], ["recent-naive"])
 
+    def test_prompt_search_includes_session_context(self):
+        recent = self.now - timedelta(days=1)
+        (self.proj / "context.jsonl").write_text(
+            "\n".join(
+                [
+                    line(
+                        "user",
+                        promptId="intro",
+                        timestamp=recent.isoformat().replace("+00:00", "Z"),
+                        cwd="/w",
+                        message={"role": "user", "content": "Session title prompt"},
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(recent + timedelta(seconds=30)).isoformat().replace("+00:00", "Z"),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                    line(
+                        "user",
+                        promptId="match",
+                        timestamp=(recent + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
+                        cwd="/w",
+                        message={"role": "user", "content": "Needle prompt body"},
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(recent + timedelta(minutes=1, seconds=30)).isoformat().replace("+00:00", "Z"),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                ]
+            )
+            + "\n"
+        )
+
+        status, data = self.call("GET", "/api/prompts/search?q=needle")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            data["prompts"],
+            [
+                {
+                    "prompt_id": "match",
+                    "session_id": "context",
+                    "position": 1,
+                    "timestamp": (recent + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
+                    "project_path": "/w",
+                    "session_title": "Session title prompt",
+                    "text": "Needle prompt body",
+                    "is_truncated": False,
+                }
+            ],
+        )
+
     def test_prompt_search_ignores_presentation_markup(self):
         recent = self.now - timedelta(days=1)
         (self.proj / "markup.jsonl").write_text(

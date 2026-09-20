@@ -316,15 +316,17 @@ async function renderSessionList(page, token) {
 }
 
 function searchResultCard(prompt) {
+  const sessionTitle = prompt.session_title || "(untitled session)";
   return el(
     "article",
     {},
     el(
       "p",
       { class: "meta" },
+      el("span", {}, "Session: "),
+      el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, sessionTitle),
       el("span", {}, formatStamp(prompt.timestamp)),
-      prompt.project_path ? el("span", {}, prompt.project_path) : null,
-      el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, "Open session")
+      prompt.project_path ? el("span", {}, prompt.project_path) : null
     ),
     expandableText(prompt.text, prompt.is_truncated, async () => {
       const full = await api(
@@ -337,19 +339,19 @@ function searchResultCard(prompt) {
 }
 
 async function renderPromptSearch(query, page, token) {
-  show(el("h2", {}, "Sessions"), searchForm(query), el("p", { class: "muted" }, "Loading…"));
+  show(el("h2", {}, "Search results"), searchForm(query), el("p", { class: "muted" }, "Loading…"));
   let data;
   try {
     data = await api("GET", `/api/prompts/search?q=${encodeURIComponent(query)}&page=${page}`);
   } catch (err) {
-    if (token === renderToken) show(el("h2", {}, "Sessions"), searchForm(query), errorNotice(err));
+    if (token === renderToken) show(el("h2", {}, "Search results"), searchForm(query), errorNotice(err));
     return;
   }
   if (token !== renderToken) return;
 
   if (data.prompts.length === 0) {
     show(
-      el("h2", {}, "Sessions"),
+      el("h2", {}, "Search results"),
       searchForm(query),
       el("div", { class: "notice" }, el("p", {}, `No prompts from the last 7 days matched “${query}”.`))
     );
@@ -357,7 +359,7 @@ async function renderPromptSearch(query, page, token) {
   }
 
   show(
-    el("h2", {}, "Sessions"),
+    el("h2", {}, "Search results"),
     searchForm(query),
     el("p", { class: "muted" }, `Showing matches for “${data.query}”.`),
     ...data.prompts.map((prompt) => searchResultCard(prompt)),
