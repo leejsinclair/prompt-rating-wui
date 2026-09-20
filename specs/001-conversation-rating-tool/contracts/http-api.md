@@ -103,6 +103,7 @@ Search matching uses visible prompt text (presentation markup is ignored for mat
       "position": 0,
       "timestamp": "2026-09-19T10:00:00Z",
       "project_path": "/work/project",
+      "session_title": "Initial prompt preview",
       "text": "...",
       "is_truncated": false
     }

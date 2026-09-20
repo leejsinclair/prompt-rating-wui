@@ -125,6 +125,9 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
         session = parse_session_file(path)
         if not session.is_parseable:
             continue
+        session_title = (
+            _preview(strip_markup(humanize_command_markup(session.prompts[0].text))) if session.prompts else None
+        )
         for prompt in session.prompts:
             if not prompt.timestamp:
                 continue
@@ -144,6 +147,7 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
                     "timestamp": prompt.timestamp,
                     "sort_timestamp": parsed_timestamp,
                     "project_path": session.project_path,
+                    "session_title": session_title,
                     "text": snippet,
                     "is_truncated": is_truncated,
                 }
