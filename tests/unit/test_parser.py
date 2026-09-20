@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from src.parsing import parse_session_file
+from src.server.common import humanize_command_markup
 
 
 def user(text, prompt_id="p1", ts="2026-01-01T00:00:00Z", **extra):
@@ -125,6 +126,14 @@ class ParserTests(unittest.TestCase):
         s = self.parse([{"type": "mode", "mode": "normal"}])
         self.assertTrue(s.is_parseable)
         self.assertEqual(s.prompt_count, 0)
+
+    def test_humanizes_command_markup(self):
+        text = "<strong>&lt;command-name&gt;/clear&lt;/command-name&gt; &lt;command-message&gt;clear&lt;/command-message&gt; &lt;command-args&gt;&lt;/command-args&gt;</strong>"
+        self.assertEqual(humanize_command_markup(text), "<strong>/clear</strong>")
+
+    def test_humanizes_literal_command_markup(self):
+        text = "<command-name>/help</command-name> <command-message>describe</command-message> <command-args>topic</command-args>"
+        self.assertEqual(humanize_command_markup(text), "/help topic — describe")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ Python 3 standard library only — there is nothing to install.
 ## Features
 
 - **Browse sessions** — paginated list of past sessions, most recent first.
+- **Search recent prompts** — search prompt text across all sessions from the last 7 days.
 - **Review prompts** — prompts in order, with expandable responses, activity summary and response time.
 - **Rate 1–10** — ratings persist across reloads; re-rating replaces the old value.
 - **Top Rated view** — highest rated first, ties broken by most recently rated; re-rate inline.

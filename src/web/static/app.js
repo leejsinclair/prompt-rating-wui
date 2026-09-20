@@ -51,8 +51,6 @@ async function api(method, path, body) {
   return payload;
 }
 
-/* Transcript-derived text goes through the browser's HTML Sanitizer API when it exists,
-   and falls back to plain text when it does not (research.md §5). */
 function setSafeText(node, text) {
   if (typeof node.setHTML === "function") {
     try {
@@ -117,14 +115,26 @@ function errorNotice(err) {
   return el("div", { class: "notice error", role: "alert" }, el("p", {}, err.message));
 }
 
-function pager(basePath, page, hasMore) {
+function pageHref(basePath, params) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value === null || value === undefined) continue;
+    const normalized = key === "q" ? String(value).trim() : String(value);
+    if (normalized === "") continue;
+    query.set(key, normalized);
+  }
+  const suffix = query.toString();
+  return suffix ? `${basePath}?${suffix}` : basePath;
+}
+
+function pager(basePath, page, hasMore, params = {}) {
   if (page <= 1 && !hasMore) return null;
   return el(
     "nav",
     { class: "pager", "aria-label": "Pagination" },
-    page > 1 ? el("a", { href: `${basePath}?page=${page - 1}` }, "Previous page") : null,
+    page > 1 ? el("a", { href: pageHref(basePath, { ...params, page: page - 1 }) }, "Previous page") : null,
     el("span", { class: "muted" }, `Page ${page}`),
-    hasMore ? el("a", { href: `${basePath}?page=${page + 1}` }, "Next page") : null
+    hasMore ? el("a", { href: pageHref(basePath, { ...params, page: page + 1 }) }, "Next page") : null
   );
 }
 
@@ -223,13 +233,44 @@ function clampedText(fullText) {
 
 /* ---------- session list (FR-001) ---------- */
 
+function searchForm(query = "") {
+  const label = el("label", { for: "prompt-search" }, "Search prompts");
+  const input = el("input", {
+    id: "prompt-search",
+    type: "search",
+    name: "q",
+    value: query,
+    placeholder: "Search prompts from the last 7 days",
+    "aria-label": "Search prompts from the last 7 days",
+  });
+  const form = el(
+    "form",
+    { class: "search-form" },
+    input,
+    el("button", { type: "submit" }, "Search"),
+    query ? el("a", { href: "#/sessions", class: "muted" }, "Clear") : null
+  );
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const next = input.value.trim();
+    location.hash = next ? pageHref("#/sessions", { q: next }) : "#/sessions";
+  });
+  return el(
+    "div",
+    { class: "search-box" },
+    label,
+    form,
+    el("p", { class: "muted" }, "Searches prompt text across all sessions from the last 7 days.")
+  );
+}
+
 async function renderSessionList(page, token) {
-  show(el("h2", {}, "Sessions"), el("p", { class: "muted" }, "Loading…"));
+  show(el("h2", {}, "Sessions"), searchForm(), el("p", { class: "muted" }, "Loading…"));
   let data;
   try {
     data = await api("GET", `/api/sessions?page=${page}`);
   } catch (err) {
-    if (token === renderToken) show(el("h2", {}, "Sessions"), errorNotice(err));
+    if (token === renderToken) show(el("h2", {}, "Sessions"), searchForm(), errorNotice(err));
     return;
   }
   if (token !== renderToken) return;
@@ -249,14 +290,17 @@ async function renderSessionList(page, token) {
     return;
   }
 
-  const items = data.sessions.map((s) =>
-    el(
+  const items = data.sessions.map((s) => {
+    const title = el("strong", {});
+    const fallbackTitle = s.is_parseable ? "(no prompt text)" : "(unreadable session)";
+    setSafeText(title, s.title || fallbackTitle);
+    return el(
       "li",
       {},
       el(
         "a",
         { class: "row", href: `#/sessions/${encodeURIComponent(s.session_id)}` },
-        el("strong", {}, s.title || (s.is_parseable ? "(no prompts in this session)" : "(unreadable session)")),
+        title,
         el(
           "span",
           { class: "meta" },
@@ -266,9 +310,59 @@ async function renderSessionList(page, token) {
           s.is_parseable ? null : el("span", { class: "badge" }, "Couldn't be read")
         )
       )
-    )
+    );
+  });
+  show(el("h2", {}, "Sessions"), searchForm(), el("ul", { class: "items" }, items), pager("#/sessions", data.page, data.has_more));
+}
+
+function searchResultCard(prompt) {
+  return el(
+    "article",
+    {},
+    el(
+      "p",
+      { class: "meta" },
+      el("span", {}, formatStamp(prompt.timestamp)),
+      prompt.project_path ? el("span", {}, prompt.project_path) : null,
+      el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, "Open session")
+    ),
+    expandableText(prompt.text, prompt.is_truncated, async () => {
+      const full = await api(
+        "GET",
+        `/api/sessions/${encodeURIComponent(prompt.session_id)}/prompts/${encodeURIComponent(prompt.prompt_id)}`
+      );
+      return full.text;
+    })
   );
-  show(el("h2", {}, "Sessions"), el("ul", { class: "items" }, items), pager("#/sessions", data.page, data.has_more));
+}
+
+async function renderPromptSearch(query, page, token) {
+  show(el("h2", {}, "Sessions"), searchForm(query), el("p", { class: "muted" }, "Loading…"));
+  let data;
+  try {
+    data = await api("GET", `/api/prompts/search?q=${encodeURIComponent(query)}&page=${page}`);
+  } catch (err) {
+    if (token === renderToken) show(el("h2", {}, "Sessions"), searchForm(query), errorNotice(err));
+    return;
+  }
+  if (token !== renderToken) return;
+
+  if (data.prompts.length === 0) {
+    show(
+      el("h2", {}, "Sessions"),
+      searchForm(query),
+      el("div", { class: "notice" }, el("p", {}, `No prompts from the last 7 days matched “${query}”.`))
+    );
+    return;
+  }
+
+  show(
+    el("h2", {}, "Sessions"),
+    searchForm(query),
+    el("p", { class: "muted" }, `Showing matches for “${data.query}”.`),
+    ...data.prompts.map((prompt) => searchResultCard(prompt)),
+    pager("#/sessions", data.page, data.has_more, { q: data.query })
+  );
 }
 
 /* ---------- session detail (FR-003, FR-004) ---------- */
@@ -471,7 +565,9 @@ function route() {
   const token = ++renderToken;
   const hash = location.hash || "#/sessions";
   const [path, query] = hash.slice(1).split("?");
-  const page = Math.max(1, parseInt(new URLSearchParams(query || "").get("page"), 10) || 1);
+  const params = new URLSearchParams(query || "");
+  const page = Math.max(1, parseInt(params.get("page"), 10) || 1);
+  const search = (params.get("q") || "").trim();
   const parts = path.split("/").filter(Boolean);
 
   const onTopRated = parts[0] === "top-rated";
@@ -483,6 +579,7 @@ function route() {
   window.scrollTo(0, 0);
   if (onTopRated) return renderTopRated(page, token);
   if (parts[0] === "sessions" && parts[1]) return renderSessionDetail(decodeURIComponent(parts[1]), token);
+  if (search) return renderPromptSearch(search, page, token);
   return renderSessionList(page, token);
 }
 

@@ -197,6 +197,24 @@ button.danger:hover:not(:disabled) { background: var(--danger-wash); color: var(
   font-variant-numeric: tabular-nums;
 }
 
+.search-box { margin: 1rem 0; }
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.search-form input[type="search"] {
+  flex: 1 1 20rem;
+  min-width: 16rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
 .pager { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
 
 details > summary { cursor: pointer; color: var(--accent); margin-top: 0.5rem; }
