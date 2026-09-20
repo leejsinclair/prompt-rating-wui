@@ -326,8 +326,7 @@ function searchResultCard(prompt) {
       el("span", {}, "Session: "),
       el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, sessionTitle),
       el("span", {}, formatStamp(prompt.timestamp)),
-      prompt.project_path ? el("span", {}, prompt.project_path) : null,
-      el("a", { href: `#/sessions/${encodeURIComponent(prompt.session_id)}` }, "Open session")
+      prompt.project_path ? el("span", {}, prompt.project_path) : null
     ),
     expandableText(prompt.text, prompt.is_truncated, async () => {
       const full = await api(
