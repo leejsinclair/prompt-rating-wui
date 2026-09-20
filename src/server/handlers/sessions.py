@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 from typing import Tuple
 
 from src.discovery import discover_session_files
@@ -8,8 +9,10 @@ from src.server.common import (
     ApiError,
     Context,
     Request,
+    humanize_command_markup,
     load_ratings,
     load_session,
+    now_utc,
     truncate_text,
 )
 
@@ -22,6 +25,7 @@ def _preview(text: str, limit: int = 120) -> str:
 def list_sessions(ctx: Context, req: Request) -> Tuple[int, dict]:
     page = req.page()
     sessions = [parse_session_file(path) for path in discover_session_files(ctx.projects_root)]
+    sessions = [s for s in sessions if not s.is_parseable or s.prompt_count > 0]
     sessions.sort(key=lambda s: s.last_activity_at or "", reverse=True)
     start = (page - 1) * PAGE_SIZE
     window = sessions[start : start + PAGE_SIZE]
@@ -35,7 +39,7 @@ def list_sessions(ctx: Context, req: Request) -> Tuple[int, dict]:
                 "prompt_count": s.prompt_count,
                 "is_parseable": s.is_parseable,
                 "project_path": s.project_path,
-                "title": _preview(s.prompts[0].text) if s.prompts else None,
+                "title": _preview(humanize_command_markup(s.prompts[0].text)) if s.prompts else None,
             }
             for s in window
         ],
@@ -58,7 +62,7 @@ def get_session(ctx: Context, req: Request) -> Tuple[int, dict]:
         payload["error"] = session.error or "This session could not be read."
         return 200, payload
     for prompt in session.prompts:
-        text, is_truncated = truncate_text(prompt.text)
+        text, is_truncated = truncate_text(humanize_command_markup(prompt.text))
         rating = ratings.get(prompt.prompt_id)
         payload["prompts"].append(
             {
@@ -86,7 +90,7 @@ def get_prompt(ctx: Context, req: Request) -> Tuple[int, dict]:
     rating = ratings.get(prompt_id)
     payload = {
         "prompt_id": prompt.prompt_id,
-        "text": prompt.text,
+        "text": humanize_command_markup(prompt.text),
         "response_text": prompt.response_text,
         "activity_summary": prompt.activity_summary,
         "duration_seconds": prompt.duration_seconds,
@@ -95,3 +99,53 @@ def get_prompt(ctx: Context, req: Request) -> Tuple[int, dict]:
     if ratings_invalid:
         payload["ratings_invalid"] = True
     return 200, payload
+
+
+def _is_recent(timestamp: str, cutoff: datetime) -> bool:
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed >= cutoff
+
+
+def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
+    query = req.query.get("q", [""])[0].strip()
+    if not query:
+        raise ApiError(400, "q is required.")
+
+    page = req.page()
+    cutoff = now_utc(ctx) - timedelta(days=7)
+    needle = query.casefold()
+    matches = []
+    for path in discover_session_files(ctx.projects_root):
+        session = parse_session_file(path)
+        if not session.is_parseable:
+            continue
+        for prompt in session.prompts:
+            if not prompt.timestamp or not _is_recent(prompt.timestamp, cutoff):
+                continue
+            text = humanize_command_markup(prompt.text)
+            if needle not in text.casefold():
+                continue
+            snippet, is_truncated = truncate_text(text)
+            matches.append(
+                {
+                    "prompt_id": prompt.prompt_id,
+                    "session_id": session.session_id,
+                    "position": prompt.position,
+                    "timestamp": prompt.timestamp,
+                    "project_path": session.project_path,
+                    "text": snippet,
+                    "is_truncated": is_truncated,
+                }
+            )
+
+    matches.sort(key=lambda prompt: prompt["timestamp"], reverse=True)
+    start = (page - 1) * PAGE_SIZE
+    return 200, {
+        "page": page,
+        "has_more": start + PAGE_SIZE < len(matches),
+        "query": query,
+        "prompts": matches[start : start + PAGE_SIZE],
+    }

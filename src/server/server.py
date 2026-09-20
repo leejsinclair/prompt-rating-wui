@@ -30,6 +30,7 @@ CONTENT_TYPES = {
 # Route dispatch: (method, path pattern, handler). US1, US2 and US3 each append their routes here.
 ROUTES = [
     ("GET", re.compile(r"^/api/sessions$"), session_handlers.list_sessions),
+    ("GET", re.compile(r"^/api/prompts/search$"), session_handlers.search_prompts),
     ("GET", re.compile(r"^/api/sessions/(?P<session_id>[^/]+)$"), session_handlers.get_session),
     (
         "GET",

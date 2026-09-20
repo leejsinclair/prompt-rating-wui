@@ -4,6 +4,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.ratings import RatingsStore
@@ -91,6 +92,57 @@ class QuickstartTests(unittest.TestCase):
         second = self.call("GET", "/api/sessions?page=2")[1]
         self.assertEqual((len(first["sessions"]), first["has_more"]), (20, True))
         self.assertEqual((len(second["sessions"]), second["has_more"]), (5, False))
+
+    def test_sessions_without_prompts_are_hidden(self):
+        self.add_session("shown", [("a", "hello", "r")])
+        (self.proj / "hidden.jsonl").write_text(json.dumps({"type": "mode", "mode": "normal"}) + "\n")
+        sessions = self.call("GET", "/api/sessions")[1]["sessions"]
+        self.assertEqual([session["session_id"] for session in sessions], ["shown"])
+
+    def test_prompt_search_only_returns_recent_matches(self):
+        recent = datetime.now(timezone.utc) - timedelta(days=2)
+        old = datetime.now(timezone.utc) - timedelta(days=8)
+        (self.proj / "recent.jsonl").write_text(
+            "\n".join(
+                [
+                    line(
+                        "user",
+                        promptId="recent-prompt",
+                        timestamp=recent.isoformat().replace("+00:00", "Z"),
+                        cwd="/w",
+                        message={"role": "user", "content": "Search Needle"},
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(recent + timedelta(seconds=30)).isoformat().replace("+00:00", "Z"),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (self.proj / "old.jsonl").write_text(
+            "\n".join(
+                [
+                    line(
+                        "user",
+                        promptId="old-prompt",
+                        timestamp=old.isoformat().replace("+00:00", "Z"),
+                        cwd="/w",
+                        message={"role": "user", "content": "Search Needle"},
+                    ),
+                    line(
+                        "assistant",
+                        timestamp=(old + timedelta(seconds=30)).isoformat().replace("+00:00", "Z"),
+                        message={"role": "assistant", "content": [{"type": "text", "text": "r"}]},
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        status, data = self.call("GET", "/api/prompts/search?q=needle")
+        self.assertEqual(status, 200)
+        self.assertEqual([prompt["prompt_id"] for prompt in data["prompts"]], ["recent-prompt"])
 
     def test_invalid_rating_value_rejected(self):
         self.assertEqual(self.call("PUT", "/api/ratings/a", {"value": 0, "session_id": "s", "position": 0})[0], 400)

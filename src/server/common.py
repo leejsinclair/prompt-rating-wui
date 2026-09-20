@@ -1,6 +1,8 @@
 import json
 import re
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from html import unescape
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from urllib.parse import parse_qs
@@ -13,6 +15,13 @@ PAGE_SIZE = 20
 MAX_CHARS = 2000
 MAX_WORDS = 500
 INVALID_STORE_MESSAGE = "The local ratings file is invalid. Reset it to start over with empty ratings."
+_TAG_RE = re.compile(r"<[^>]+>")
+_COMMAND_BLOCK_RE = re.compile(
+    r"(?:<command-name>|&lt;command-name&gt;)(?P<name>.*?)(?:</command-name>|&lt;/command-name&gt;)\s*"
+    r"(?:<command-message>|&lt;command-message&gt;)(?P<message>.*?)(?:</command-message>|&lt;/command-message&gt;)\s*"
+    r"(?:<command-args>|&lt;command-args&gt;)(?P<args>.*?)(?:</command-args>|&lt;/command-args&gt;)",
+    re.DOTALL,
+)
 
 
 class ApiError(Exception):
@@ -32,6 +41,7 @@ class Context:
     store: RatingsStore
     projects_root: Optional[Path] = None
     static_dir: Optional[Path] = None
+    now: Optional[datetime] = None
 
 
 @dataclass
@@ -73,6 +83,27 @@ def truncate_text(text: str) -> Tuple[str, bool]:
     if len(words) > MAX_WORDS:
         cut = cut[: words[MAX_WORDS - 1].end()]
     return cut.rstrip(), True
+
+
+def strip_markup(text: str) -> str:
+    return _TAG_RE.sub("", unescape(text))
+
+
+def humanize_command_markup(text: str) -> str:
+    def replace(match) -> str:
+        name = strip_markup(match.group("name")).strip()
+        message = strip_markup(match.group("message")).strip()
+        args = strip_markup(match.group("args")).strip()
+        command = " ".join(part for part in (name, args) if part).strip()
+        if message and message not in {command, command.lstrip("/")}:
+            return f"{command} — {message}" if command else message
+        return command or message
+
+    return _COMMAND_BLOCK_RE.sub(replace, text)
+
+
+def now_utc(ctx: Context) -> datetime:
+    return ctx.now or datetime.now(timezone.utc)
 
 
 def session_files(ctx: Context) -> Dict[str, Path]:

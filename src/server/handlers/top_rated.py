@@ -6,6 +6,7 @@ from src.server.common import (
     PAGE_SIZE,
     Context,
     Request,
+    humanize_command_markup,
     invalid_store_error,
     session_files,
     truncate_text,
@@ -45,7 +46,7 @@ def get_top_rated(ctx: Context, req: Request) -> Tuple[int, dict]:
             "is_orphaned": prompt is None,
         }
         if prompt is not None:
-            entry["text"], entry["is_truncated"] = truncate_text(prompt.text)
+            entry["text"], entry["is_truncated"] = truncate_text(humanize_command_markup(prompt.text))
         prompts.append(entry)
 
     return 200, {"page": page, "has_more": start + PAGE_SIZE < len(ranked), "prompts": prompts}
