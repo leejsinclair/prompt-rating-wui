@@ -109,11 +109,6 @@ def _parse_timestamp(timestamp: str):
         return None
 
 
-def _is_recent(timestamp: str, cutoff: datetime) -> bool:
-    parsed = _parse_timestamp(timestamp)
-    return parsed is not None and parsed >= cutoff
-
-
 def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
     query = req.query.get("q", [""])[0].strip()
     if not query:
@@ -128,15 +123,15 @@ def search_prompts(ctx: Context, req: Request) -> Tuple[int, dict]:
         if not session.is_parseable:
             continue
         for prompt in session.prompts:
-            if not prompt.timestamp or not _is_recent(prompt.timestamp, cutoff):
+            if not prompt.timestamp:
+                continue
+            parsed_timestamp = _parse_timestamp(prompt.timestamp)
+            if parsed_timestamp is None or parsed_timestamp < cutoff:
                 continue
             text = humanize_command_markup(prompt.text)
             if needle not in text.casefold():
                 continue
             snippet, is_truncated = truncate_text(text)
-            parsed_timestamp = _parse_timestamp(prompt.timestamp)
-            if parsed_timestamp is None:
-                continue
             matches.append(
                 {
                     "prompt_id": prompt.prompt_id,
