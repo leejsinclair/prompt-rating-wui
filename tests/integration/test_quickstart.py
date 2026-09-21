@@ -7,6 +7,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from src.favorites import FavoritePromptsStore
 from src.ratings import RatingsStore
 from src.server.common import Context
 from src.server.server import create_server
@@ -35,7 +36,16 @@ class QuickstartTests(unittest.TestCase):
         self.proj = self.root / "-w"
         self.proj.mkdir(parents=True)
         self.store_path = tmp / "cfg" / "ratings.json"
-        self.server = create_server(Context(store=RatingsStore(self.store_path), projects_root=self.root, now=self.now), port=0)
+        self.favorites_path = tmp / "cfg" / "favorites.json"
+        self.server = create_server(
+            Context(
+                store=RatingsStore(self.store_path),
+                favorites_store=FavoritePromptsStore(self.favorites_path),
+                projects_root=self.root,
+                now=self.now,
+            ),
+            port=0,
+        )
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
@@ -59,6 +69,7 @@ class QuickstartTests(unittest.TestCase):
     def test_empty_states(self):
         self.assertEqual(self.call("GET", "/api/sessions")[1], {"page": 1, "has_more": False, "sessions": []})
         self.assertEqual(self.call("GET", "/api/top-rated")[1], {"page": 1, "has_more": False, "prompts": []})
+        self.assertEqual(self.call("GET", "/api/favorites")[1], {"prompts": []})
 
     def test_bind_address_is_loopback(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
@@ -295,6 +306,50 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/ratings/reset")[1], {"reset": True})
         self.assertEqual(self.call("GET", "/api/top-rated")[0], 200)
         self.assertEqual(self.call("PUT", "/api/ratings/a", {"value": 4, "session_id": "s1", "position": 0})[0], 200)
+
+    def test_create_and_edit_favorite_prompts(self):
+        status, created = self.call("POST", "/api/favorites", {"text": "First favorite"})
+        self.assertEqual(status, 201)
+        self.assertEqual(created["text"], "First favorite")
+
+        status, listing = self.call("GET", "/api/favorites")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            listing["prompts"],
+            [
+                {
+                    "favorite_prompt_id": created["favorite_prompt_id"],
+                    "text": "First favorite",
+                    "created_at": created["created_at"],
+                    "updated_at": created["updated_at"],
+                }
+            ],
+        )
+
+        status, updated = self.call(
+            "PUT",
+            f"/api/favorites/{created['favorite_prompt_id']}",
+            {"text": "Updated favorite"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["text"], "Updated favorite")
+        self.assertEqual(updated["created_at"], created["created_at"])
+        self.assertGreater(updated["updated_at"], created["updated_at"])
+        self.assertEqual(self.call("GET", "/api/favorites")[1]["prompts"][0]["text"], "Updated favorite")
+
+    def test_invalid_favorite_payload_rejected(self):
+        self.assertEqual(self.call("POST", "/api/favorites", {"text": ""})[0], 400)
+        self.assertEqual(self.call("POST", "/api/favorites", {"text": "   "})[0], 400)
+        self.assertEqual(self.call("PUT", "/api/favorites/nope", {"text": "ok"})[0], 404)
+
+    def test_corrupted_favorites_recovery(self):
+        self.favorites_path.parent.mkdir(parents=True)
+        self.favorites_path.write_text("not json")
+        status, data = self.call("GET", "/api/favorites")
+        self.assertEqual((status, data.get("favorites_invalid")), (409, True))
+        self.assertEqual(self.call("POST", "/api/favorites/reset")[1], {"reset": True})
+        self.assertEqual(self.call("GET", "/api/favorites")[1], {"prompts": []})
+        self.assertEqual(self.call("POST", "/api/favorites", {"text": "Recovered"})[0], 201)
 
     def test_errors_leak_no_paths_or_tracebacks(self):
         self.add_session("s1", [("a", "hi", "r")])

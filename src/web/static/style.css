@@ -215,6 +215,31 @@ button.danger:hover:not(:disabled) { background: var(--danger-wash); color: var(
   font: inherit;
 }
 
+.editor {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.editor textarea {
+  width: 100%;
+  min-height: 10rem;
+  resize: vertical;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .pager { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
 
 details > summary { cursor: pointer; color: var(--accent); margin-top: 0.5rem; }

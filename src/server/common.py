@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 from urllib.parse import parse_qs
 
+from src.favorites import FavoritePromptsStore, InvalidFavoritesStoreError
 from src.discovery import discover_session_files
 from src.parsing import Session, parse_session_file
 from src.ratings import InvalidStoreError, RatingsStore
@@ -15,6 +16,7 @@ PAGE_SIZE = 20
 MAX_CHARS = 2000
 MAX_WORDS = 500
 INVALID_STORE_MESSAGE = "The local ratings file is invalid. Reset it to start over with empty ratings."
+INVALID_FAVORITES_STORE_MESSAGE = "The local favorites file is invalid. Reset it to start over with empty favorites."
 _TAG_RE = re.compile(r"<[^>]+>")
 _COMMAND_BLOCK_RE = re.compile(
     r"(?:<command-name>|&lt;command-name&gt;)(?P<name>.*?)(?:</command-name>|&lt;/command-name&gt;)\s*"
@@ -36,9 +38,14 @@ def invalid_store_error() -> ApiError:
     return ApiError(409, INVALID_STORE_MESSAGE, ratings_invalid=True)
 
 
+def invalid_favorites_store_error() -> ApiError:
+    return ApiError(409, INVALID_FAVORITES_STORE_MESSAGE, favorites_invalid=True)
+
+
 @dataclass
 class Context:
     store: RatingsStore
+    favorites_store: FavoritePromptsStore = field(default_factory=FavoritePromptsStore)
     projects_root: Optional[Path] = None
     static_dir: Optional[Path] = None
     now: Optional[datetime] = None
@@ -125,4 +132,12 @@ def load_ratings(ctx: Context) -> Tuple[Dict[str, dict], bool]:
     try:
         return ctx.store.load(), False
     except InvalidStoreError:
+        return {}, True
+
+
+def load_favorites(ctx: Context) -> Tuple[Dict[str, dict], bool]:
+    """Return (favorites, invalid). An invalid store yields no favorites plus invalid=True."""
+    try:
+        return ctx.favorites_store.load(), False
+    except InvalidFavoritesStoreError:
         return {}, True
