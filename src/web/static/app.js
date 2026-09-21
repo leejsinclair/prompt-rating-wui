@@ -619,8 +619,9 @@ function favoritePromptEditor({ heading, submitText, initialText = "", onSubmit,
       textarea.value = "";
       status.textContent = "Saved";
     } catch (err) {
-      save.disabled = false;
       status.textContent = err.message;
+    } finally {
+      save.disabled = false;
     }
   });
   return form;
@@ -712,7 +713,7 @@ async function renderFavorites(token) {
     el("p", { class: "muted" }, "Save your own prompt drafts here and edit them inline."),
     createForm,
     data.prompts.length
-      ? data.prompts.map((entry) => favoritePromptCard(entry, reload))
+      ? [...data.prompts.map((entry) => favoritePromptCard(entry, reload))]
       : el(
           "div",
           { class: "notice" },
