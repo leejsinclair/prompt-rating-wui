@@ -650,7 +650,7 @@ function favoritePromptCard(entry, reload) {
           },
           onSubmit: async (text) => {
             await api("PUT", `/api/favorites/${encodeURIComponent(entry.favorite_prompt_id)}`, { text });
-            reload();
+            await reload();
           },
         })
       );
@@ -705,7 +705,7 @@ async function renderFavorites(token) {
     clearOnSuccess: true,
     onSubmit: async (text) => {
       await api("POST", "/api/favorites", { text });
-      reload();
+      await reload();
     },
   });
 
