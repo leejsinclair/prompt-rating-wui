@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime, timezone
-from dataclasses import KW_ONLY, dataclass, field
+from dataclasses import dataclass, field
 from html import unescape
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -42,14 +42,28 @@ def invalid_favorites_store_error() -> ApiError:
     return ApiError(409, INVALID_FAVORITES_STORE_MESSAGE, favorites_invalid=True)
 
 
-@dataclass
+@dataclass(init=False)
 class Context:
     store: RatingsStore
     projects_root: Optional[Path] = None
     static_dir: Optional[Path] = None
     now: Optional[datetime] = None
-    _: KW_ONLY
     favorites_store: FavoritePromptsStore = field(default_factory=FavoritePromptsStore)
+
+    def __init__(
+        self,
+        store: RatingsStore,
+        projects_root: Optional[Path] = None,
+        static_dir: Optional[Path] = None,
+        now: Optional[datetime] = None,
+        *,
+        favorites_store: Optional[FavoritePromptsStore] = None,
+    ) -> None:
+        self.store = store
+        self.projects_root = projects_root
+        self.static_dir = static_dir
+        self.now = now
+        self.favorites_store = favorites_store or FavoritePromptsStore()
 
 
 @dataclass
