@@ -71,6 +71,21 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(self.call("GET", "/api/top-rated")[1], {"page": 1, "has_more": False, "prompts": []})
         self.assertEqual(self.call("GET", "/api/favorites")[1], {"prompts": []})
 
+    def test_context_positional_arguments_remain_compatible(self):
+        positional_server = create_server(
+            Context(
+                RatingsStore(self.store_path),
+                self.root,
+                None,
+                self.now,
+            ),
+            port=0,
+        )
+        try:
+            self.assertEqual(positional_server.server_address[0], "127.0.0.1")
+        finally:
+            positional_server.server_close()
+
     def test_bind_address_is_loopback(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
 

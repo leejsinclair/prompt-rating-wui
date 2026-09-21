@@ -136,6 +136,12 @@ class FavoriteStoreTests(unittest.TestCase):
                 with self.assertRaises(InvalidFavoritesStoreError):
                     self.store.load()
 
+    def test_unreadable_path_is_invalid_state(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.mkdir()
+        with self.assertRaises(InvalidFavoritesStoreError):
+            self.store.load()
+
 
 if __name__ == "__main__":
     unittest.main()

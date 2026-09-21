@@ -45,10 +45,10 @@ def invalid_favorites_store_error() -> ApiError:
 @dataclass
 class Context:
     store: RatingsStore
-    favorites_store: FavoritePromptsStore = field(default_factory=FavoritePromptsStore)
     projects_root: Optional[Path] = None
     static_dir: Optional[Path] = None
     now: Optional[datetime] = None
+    favorites_store: FavoritePromptsStore = field(default_factory=FavoritePromptsStore)
 
 
 @dataclass
