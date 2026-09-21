@@ -586,7 +586,7 @@ async function renderTopRated(page, token) {
 
 /* ---------- favorite prompts ---------- */
 
-function favoritePromptEditor({ heading, submitText, initialText = "", onSubmit, onCancel }) {
+function favoritePromptEditor({ heading, submitText, initialText = "", clearOnSuccess = false, onSubmit, onCancel }) {
   const textarea = el("textarea", {
     name: "text",
     rows: "8",
@@ -616,7 +616,7 @@ function favoritePromptEditor({ heading, submitText, initialText = "", onSubmit,
     status.textContent = "Saving…";
     try {
       await onSubmit(text);
-      textarea.value = "";
+      if (clearOnSuccess) textarea.value = "";
       status.textContent = "Saved";
     } catch (err) {
       status.textContent = err.message;
@@ -702,6 +702,7 @@ async function renderFavorites(token) {
   const createForm = favoritePromptEditor({
     heading: "Add a favorite prompt",
     submitText: "Save prompt",
+    clearOnSuccess: true,
     onSubmit: async (text) => {
       await api("POST", "/api/favorites", { text });
       reload();
