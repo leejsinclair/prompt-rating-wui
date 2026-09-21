@@ -43,7 +43,7 @@ class FavoritePromptsStore:
             text = self.path.read_text(encoding="utf-8")
         except FileNotFoundError:
             return {}
-        except (OSError, UnicodeDecodeError) as exc:
+        except UnicodeDecodeError as exc:
             raise InvalidFavoritesStoreError(f"favorites file could not be read: {exc}") from exc
         try:
             data = json.loads(text)
