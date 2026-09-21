@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from src.favorites import FavoritePromptsStore, InvalidFavoritesStoreError
 from src.ratings import InvalidStoreError, RatingsStore
 
 
@@ -80,6 +81,66 @@ class StoreTests(unittest.TestCase):
 
     def test_reset_when_file_absent_succeeds(self):
         self.store.reset()
+
+
+class FavoriteStoreTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "nested" / "favorites.json"
+        self.store = FavoritePromptsStore(self.path)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_missing_file_is_empty_store(self):
+        self.assertEqual(self.store.load(), {})
+
+    def test_create_creates_directory_and_round_trips(self):
+        record = self.store.create("Prompt text")
+        self.assertTrue(self.path.exists())
+        self.assertEqual(record["text"], "Prompt text")
+        loaded = FavoritePromptsStore(self.path).load()
+        self.assertEqual(loaded[record["favorite_prompt_id"]]["text"], "Prompt text")
+
+    def test_update_overwrites_text_and_updates_timestamp(self):
+        first = self.store.create("Prompt text")
+        second = self.store.update(first["favorite_prompt_id"], "Updated prompt")
+        data = self.store.load()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[first["favorite_prompt_id"]]["text"], "Updated prompt")
+        self.assertEqual(second["created_at"], first["created_at"])
+        self.assertGreater(second["updated_at"], first["updated_at"])
+
+    def test_blank_text_rejected(self):
+        for bad in ("", "   ", None):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    self.store.create(bad)
+        created = self.store.create("Prompt text")
+        with self.assertRaises(ValueError):
+            self.store.update(created["favorite_prompt_id"], " ")
+
+    def _write_raw(self, text):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(text)
+
+    def test_invalid_json_is_invalid_state(self):
+        self._write_raw("not json")
+        with self.assertRaises(InvalidFavoritesStoreError):
+            self.store.load()
+
+    def test_wrong_shape_is_invalid_state(self):
+        for payload in ([], {"p": 5}, {"p": {"text": "ok"}}, {"p": {"text": "", "created_at": "t", "updated_at": "t"}}):
+            with self.subTest(payload=payload):
+                self._write_raw(json.dumps(payload))
+                with self.assertRaises(InvalidFavoritesStoreError):
+                    self.store.load()
+
+    def test_unreadable_path_is_invalid_state(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.mkdir()
+        with self.assertRaises(InvalidFavoritesStoreError):
+            self.store.load()
 
 
 if __name__ == "__main__":

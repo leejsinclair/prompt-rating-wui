@@ -13,6 +13,7 @@ Python 3 standard library only — there is nothing to install.
 - **Review prompts** — prompts in order, with expandable responses, activity summary and response time.
 - **Rate 1–10** — ratings persist across reloads; re-rating replaces the old value.
 - **Top Rated view** — highest rated first, ties broken by most recently rated; re-rate inline.
+- **Favorite Prompts view** — save your own prompt drafts locally and edit them inline.
 - **Safe by default** — binds to `127.0.0.1:5148` only; long content truncated behind "show more".
 - **Resilient** — malformed session files are skipped or flagged, and a corrupted ratings file can be reset from the UI.
 
@@ -47,6 +48,9 @@ Open the printed URL. On VS Code remote-SSH or a devcontainer, use the forwarded
 
 - Sessions are read (never modified) from `~/.claude/projects/**/*.jsonl`.
 - Ratings are stored in `~/.claude/claude-rating-tool/ratings.json`.
+- Favorite prompts are stored in `~/.claude/claude-rating-tool/favorites.json`.
+
+Favorite prompts are your own saved prompt drafts. They are separate from rated session prompts, which are still discovered from Claude Code session history and stored by rating only.
 
 ## Tests
 
@@ -61,6 +65,7 @@ python3 -m unittest discover -s tests -t .
 | `src/discovery/` | Finds session files |
 | `src/parsing/` | Parses `.jsonl` sessions into prompts and responses |
 | `src/ratings/` | Ratings store |
+| `src/favorites/` | Favorite prompt store |
 | `src/server/` | HTTP server and API |
 | `src/web/static/` | Frontend (HTML/CSS/JS, no build step) |
 | `specs/` | Spec-Kit specification, plan, tasks and API contract |

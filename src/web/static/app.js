@@ -163,6 +163,29 @@ function invalidRatingsNotice(onReset) {
   );
 }
 
+function invalidFavoritesNotice(onReset) {
+  const button = el("button", { type: "button", class: "danger" }, "Delete favorites and start over");
+  const status = el("p", { role: "status" });
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await api("POST", "/api/favorites/reset");
+      onReset();
+    } catch (err) {
+      button.disabled = false;
+      status.textContent = err.message;
+    }
+  });
+  return el(
+    "div",
+    { class: "notice warn", role: "alert" },
+    el("p", {}, el("strong", {}, "Your saved favorite prompts can't be read.")),
+    el("p", {}, "The local favorites file is damaged, so favorite prompts are hidden and can't be saved. Deleting it removes all saved favorites and lets you start fresh."),
+    el("p", {}, button),
+    status
+  );
+}
+
 /* ---------- rating control (FR-005, FR-006, FR-009) ---------- */
 
 function ratingControl({ promptId, sessionId, position, value, onSaved, onInvalid }) {
@@ -561,6 +584,146 @@ async function renderTopRated(page, token) {
   );
 }
 
+/* ---------- favorite prompts ---------- */
+
+function favoritePromptEditor({ heading, submitText, initialText = "", clearOnSuccess = false, onSubmit, onCancel }) {
+  const textarea = el("textarea", {
+    name: "text",
+    rows: "8",
+    placeholder: "Write a prompt you want to keep handy",
+    "aria-label": heading,
+  });
+  textarea.value = initialText;
+  const status = el("span", { class: "muted", role: "status" });
+  const save = el("button", { type: "submit" }, submitText);
+  const form = el(
+    "form",
+    { class: "editor" },
+    el("h3", {}, heading),
+    textarea,
+    el(
+      "div",
+      { class: "actions" },
+      save,
+      onCancel ? el("button", { type: "button", onclick: onCancel }, "Cancel") : null,
+      status
+    )
+  );
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = textarea.value;
+    save.disabled = true;
+    status.textContent = "Saving…";
+    try {
+      await onSubmit(text);
+      if (clearOnSuccess) textarea.value = "";
+      status.textContent = "Saved";
+    } catch (err) {
+      status.textContent = err.message;
+    } finally {
+      save.disabled = false;
+    }
+  });
+  return form;
+}
+
+function favoritePromptCard(entry, reload) {
+  let editing = false;
+  const container = el("article", {});
+
+  function render() {
+    const meta = el(
+      "p",
+      { class: "meta" },
+      el("span", {}, `Updated ${formatTime(entry.updated_at)}`),
+      entry.updated_at !== entry.created_at ? el("span", {}, `Created ${formatTime(entry.created_at)}`) : null
+    );
+    if (editing) {
+      container.replaceChildren(
+        favoritePromptEditor({
+          heading: "Edit favorite prompt",
+          submitText: "Save changes",
+          initialText: entry.text,
+          onCancel: () => {
+            editing = false;
+            render();
+          },
+          onSubmit: async (text) => {
+            await api("PUT", `/api/favorites/${encodeURIComponent(entry.favorite_prompt_id)}`, { text });
+            await reload();
+          },
+        })
+      );
+      return;
+    }
+    container.replaceChildren(
+      meta,
+      clampedText(entry.text),
+      el(
+        "div",
+        { class: "actions" },
+        el(
+          "button",
+          {
+            type: "button",
+            onclick: () => {
+              editing = true;
+              render();
+            },
+          },
+          "Edit"
+        )
+      )
+    );
+  }
+
+  render();
+  return container;
+}
+
+async function renderFavorites(token) {
+  const heading = el("h2", {}, "Favorite prompts");
+  show(heading, el("p", { class: "muted" }, "Loading…"));
+  let data;
+  try {
+    data = await api("GET", "/api/favorites");
+  } catch (err) {
+    if (token !== renderToken) return;
+    if (err.payload && err.payload.favorites_invalid) {
+      show(heading, invalidFavoritesNotice(() => route()));
+    } else {
+      show(heading, errorNotice(err));
+    }
+    return;
+  }
+  if (token !== renderToken) return;
+
+  const reload = () => renderFavorites(++renderToken);
+  const createForm = favoritePromptEditor({
+    heading: "Add a favorite prompt",
+    submitText: "Save prompt",
+    clearOnSuccess: true,
+    onSubmit: async (text) => {
+      await api("POST", "/api/favorites", { text });
+      await reload();
+    },
+  });
+
+  show(
+    heading,
+    el("p", { class: "muted" }, "Save your own prompt drafts here and edit them inline."),
+    createForm,
+    data.prompts.length
+      ? [...data.prompts.map((entry) => favoritePromptCard(entry, reload))]
+      : el(
+          "div",
+          { class: "notice" },
+          el("p", {}, "You haven't saved any favorite prompts yet."),
+          el("p", { class: "muted" }, "Use the form above to add prompts you want to reuse later.")
+        )
+  );
+}
+
 /* ---------- routing ---------- */
 
 function route() {
@@ -573,13 +736,16 @@ function route() {
   const parts = path.split("/").filter(Boolean);
 
   const onTopRated = parts[0] === "top-rated";
+  const onFavorites = parts[0] === "favorites";
   const setCurrent = (id, active) =>
     active ? document.getElementById(id).setAttribute("aria-current", "page") : document.getElementById(id).removeAttribute("aria-current");
   setCurrent("nav-top-rated", onTopRated);
-  setCurrent("nav-sessions", !onTopRated);
+  setCurrent("nav-favorites", onFavorites);
+  setCurrent("nav-sessions", !onTopRated && !onFavorites);
 
   window.scrollTo(0, 0);
   if (onTopRated) return renderTopRated(page, token);
+  if (onFavorites) return renderFavorites(token);
   if (parts[0] === "sessions" && parts[1]) return renderSessionDetail(decodeURIComponent(parts[1]), token);
   if (search) return renderPromptSearch(search, page, token);
   return renderSessionList(page, token);

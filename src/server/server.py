@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote, urlsplit
 
+from src.favorites import FavoritePromptsStore
 from src.ratings import RatingsStore
 from src.server.common import ApiError, Context, Request, parse_query
+from src.server.handlers import favorites as favorites_handlers
 from src.server.handlers import ratings as ratings_handlers
 from src.server.handlers import sessions as session_handlers
 from src.server.handlers import top_rated as top_rated_handlers
@@ -30,6 +32,14 @@ CONTENT_TYPES = {
 # Route dispatch: (method, path pattern, handler). US1, US2 and US3 each append their routes here.
 ROUTES = [
     ("GET", re.compile(r"^/api/sessions$"), session_handlers.list_sessions),
+    ("GET", re.compile(r"^/api/favorites$"), favorites_handlers.list_favorites),
+    ("POST", re.compile(r"^/api/favorites$"), favorites_handlers.create_favorite),
+    (
+        "PUT",
+        re.compile(r"^/api/favorites/(?P<favorite_prompt_id>[^/]+)$"),
+        favorites_handlers.update_favorite,
+    ),
+    ("POST", re.compile(r"^/api/favorites/reset$"), favorites_handlers.reset_favorites),
     ("GET", re.compile(r"^/api/prompts/search$"), session_handlers.search_prompts),
     ("GET", re.compile(r"^/api/sessions/(?P<session_id>[^/]+)$"), session_handlers.get_session),
     (
@@ -152,7 +162,7 @@ def make_handler(ctx: Context):
 
 
 def create_server(ctx: Optional[Context] = None, host: str = HOST, port: int = PORT) -> ThreadingHTTPServer:
-    ctx = ctx or Context(store=RatingsStore())
+    ctx = ctx or Context(store=RatingsStore(), favorites_store=FavoritePromptsStore())
     server = ThreadingHTTPServer((host, port), make_handler(ctx))
     server.daemon_threads = True
     return server
