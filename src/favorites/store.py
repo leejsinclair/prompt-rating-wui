@@ -98,7 +98,7 @@ class FavoritePromptsStore:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(data, handle, indent=2)
             os.replace(tmp_name, self.path)
-        except BaseException:
+        except Exception:
             try:
                 os.unlink(tmp_name)
             except OSError:
