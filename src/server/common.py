@@ -63,7 +63,7 @@ class Context:
         self.projects_root = projects_root
         self.static_dir = static_dir
         self.now = now
-        self.favorites_store = favorites_store or FavoritePromptsStore()
+        self.favorites_store = favorites_store if favorites_store is not None else FavoritePromptsStore()
 
 
 @dataclass
