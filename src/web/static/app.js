@@ -52,15 +52,7 @@ async function api(method, path, body) {
 }
 
 function setSafeText(node, text) {
-  if (typeof node.setHTML === "function") {
-    try {
-      node.setHTML(text);
-      return node;
-    } catch (sanitizeError) {
-      /* fall through to plain text */
-    }
-  }
-  node.textContent = text;
+  node.textContent = String(text ?? "");
   return node;
 }
 
