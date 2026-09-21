@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime, timezone
-from dataclasses import dataclass, field
+from dataclasses import KW_ONLY, dataclass, field
 from html import unescape
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -48,6 +48,7 @@ class Context:
     projects_root: Optional[Path] = None
     static_dir: Optional[Path] = None
     now: Optional[datetime] = None
+    _: KW_ONLY
     favorites_store: FavoritePromptsStore = field(default_factory=FavoritePromptsStore)
 
 
